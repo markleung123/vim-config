@@ -8,35 +8,57 @@ Plug 'ryanoasis/vim-devicons'
 Plug 'tiagofumo/vim-nerdtree-syntax-highlight'
 Plug 'morhetz/gruvbox'
 Plug 'mhinz/vim-startify'
+Plug 'lukas-reineke/indent-blankline.nvim'
 
 " Functional
 Plug 'scrooloose/nerdtree'
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-surround'
+" Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
+Plug 'psliwka/vim-smoothie'
 
 " React
 Plug 'SirVer/ultisnips'
 Plug 'mlaursen/vim-react-snippets'
 
+" Flutter
+Plug 'dart-lang/dart-vim-plugin'
+Plug 'thosakwe/vim-flutter'
+
 " C#
 Plug 'OmniSharp/omnisharp-vim'
 Plug 'dense-analysis/ale'
 
-" Emmet
+Emmet
 Plug 'mattn/emmet-vim'
 
 " Rainbow csv
 Plug 'mechatroner/rainbow_csv'
 
+" matching JSX tag
+Plug 'andymass/vim-matchup'
+
 call plug#end()
 
+" Enable Flutter menu
+autocmd FileType dart :call FlutterMenu()
 
 """ ======== Main Configurations ===========
+"set foldmethod=syntax "syntax highlighting items specify folds  
+"set foldcolumn=1 "defines 1 col at window left, to indicate folding  
+"let javaScript_fold=1 "activate folding by JS syntax  
+set foldlevelstart=99 "start file with all folds opened
+
+set foldmethod=indent
+set foldexpr=nvim_treesitter#foldexpr()
+
 set nu cursorline
 set wildmenu
 set cmdheight=1
 set laststatus=2
+
+let g:indent_blankline_filetype_exclude = ['startify']
 
 " A buffer becomes hidden when it is abandoned
 set hidden
@@ -105,13 +127,14 @@ let g:startify_fortune_use_unicode=1
 let g:coc_global_extensions = [
   \ 'coc-snippets',
   \ 'coc-pairs',
-  \ 'coc-tsserver',
   \ 'coc-eslint',
   \ 'coc-prettier',
   \ 'coc-json',
   \ 'coc-css',
   \ 'coc-pyright',
+  \ 'coc-jedi',
   \ ]
+
 
 let g:UltiSnipsExpandTrigger="<nop>"
 inoremap <expr> <CR> pumvisible() ? "<C-R>=UltiSnips#ExpandSnippetOrJump()<CR>" : "\<CR>"
@@ -152,18 +175,22 @@ map <leader>sc :setlocal spell!<CR>
 hi SpellBad cterm=underline
 
 " Auto completion
-inoremap <silent><expr> <Tab>
-      \ pumvisible() ? "\<C-n>" :
-      \ <SID>check_back_space() ? "\<Tab>" :
+inoremap <silent><expr> <TAB>
+      \ coc#pum#visible() ? coc#pum#next(1) :
+      \ CheckBackspace() ? "\<Tab>" :
       \ coc#refresh()
-inoremap <expr><S-Tab> pumvisible() ? "\<C-p>" : "\<C-h>"
-inoremap <silent><expr> <CR> pumvisible() ? coc#_select_confirm()
-            \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+inoremap <expr><S-TAB> coc#pum#visible() ? coc#pum#prev(1) : "\<C-h>"
 
-function! s:check_back_space() abort
+" Make <CR> to accept selected completion item or notify coc.nvim to format
+" <C-g>u breaks current undo, please make your own choice.
+inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                              \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+
+function! CheckBackspace() abort
   let col = col('.') - 1
-  return !col || getline('.')[col - 1]  =~# '\s'
+  return !col || getline('.')[col - 1]  =~# '\s' || getline('.')[col - 1]  =~# '\"'
 endfunction
+
 
 " Use <c-space> to trigger completion.
 if has('nvim')
@@ -200,7 +227,8 @@ let g:mapleader = " "
 nnoremap <Space> <Nop>
 
 nmap <leader>f :find 
-nnoremap <C-l> :CocCommand prettier.formatFile<CR>
+nnoremap <C-l> :call CocAction('format')<CR>
+
 " vmap <C-l> <Plug>(coc-format-selected)
 nmap <C-s> <Plug>(coc-range-select)
 xmap <C-s> <Plug>(coc-range-select)
@@ -210,6 +238,9 @@ nmap <F2> <Plug>(coc-rename)
 vnoremap <Leader>y "+y
 nmap <Leader>p "+p
 
+" New tab
+nnoremap <leader>nt :tabnew<CR>
+
 " No highlight!
 nnoremap <leader>h :noh<CR>
 
@@ -217,7 +248,7 @@ nnoremap <leader>h :noh<CR>
 nnoremap <leader>b :ls<CR>:b 
 nnoremap <leader>w :bd<CR> 
 
-" Move cursor 
+" Move cursor in insert mode
 inoremap <A-h> <C-o>h
 inoremap <A-j> <C-o>j
 inoremap <A-k> <C-o>k
@@ -255,6 +286,9 @@ nmap <silent> gr <Plug>(coc-references)
 " Run script!
 autocmd FileType python map <buffer> <F9> :w<CR>:exec '!python3' shellescape(@%, 1)<CR>
 autocmd FileType python imap <buffer> <F9> <esc>:w<CR>:exec '!python3' shellescape(@%, 1)<CR>
+
+" echo your postion in code
+nnoremap <C-A-k> :<c-u>MatchupWhereAmI?<cr>
 
 " C#
 if has('patch-8.1.1880')
@@ -314,3 +348,10 @@ augroup omnisharp_commands
   autocmd FileType cs nmap <silent> <buffer> <Leader>ossp <Plug>(omnisharp_stop_server)
 augroup END
 
+" Flutter
+let g:flutter_autoscroll = 1
+nnoremap <leader>fa :FlutterRun -d all<cr>
+nnoremap <leader>fq :FlutterQuit<cr>
+nnoremap <leader>fr :FlutterHotReload<cr>
+nnoremap <leader>fR :FlutterHotRestart<cr>
+nnoremap <leader>fD :FlutterVisualDebug<cr>
